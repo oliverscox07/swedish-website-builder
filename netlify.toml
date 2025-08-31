@@ -1,0 +1,44 @@
+[build]
+  command = "npm run build:prod"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "18"
+  # Firebase environment variables will be set in Netlify dashboard
+
+# Handle client-side routing
+[[redirects]]
+  from = "/website/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/products"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/company-setup"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/edit-company"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/verify-code"
+  to = "/index.html"
+  status = 200
+
+# Serve static data files
+[[redirects]]
+  from = "/static-data/*"
+  to = "/static-data/:splat"
+  status = 200
