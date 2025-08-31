@@ -3,7 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../config/firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
-import { Sparkles, LogOut, Plus, Globe, Edit, Trash2, Eye, Building2, MapPin, Instagram, Facebook, Music, Users, Package, ExternalLink, Settings } from 'lucide-react';
+import { Sparkles, LogOut, Plus, Globe, Edit, Trash2, Eye, Building2, MapPin, Instagram, Facebook, Music, Users, Package, ExternalLink, Settings, Shield, AlertTriangle } from 'lucide-react';
+import { DataService } from '../services/dataService';
+import { SAFETY_CONFIG } from '../config/safety';
 
 interface Product {
   id: string;
@@ -35,6 +37,7 @@ const Dashboard: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [readStats, setReadStats] = useState<any>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -86,7 +89,11 @@ const Dashboard: React.FC = () => {
       } finally {
         setLoading(false);
       }
-  };
+    };
+
+    // Load read stats for safety monitoring
+    const stats = DataService.getReadStats();
+    setReadStats(stats);
 
     loadData();
   }, [currentUser, location.state]);
@@ -150,6 +157,46 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Välkommen tillbaka!</h1>
           <p className="text-gray-600">Hantera ditt företag och produkter</p>
         </div>
+
+        {/* Safety Status */}
+        {readStats && (
+          <div className="mb-6">
+            <div className={`p-4 rounded-lg border ${
+              readStats.dailyReads >= readStats.maxDailyReads * SAFETY_CONFIG.WARNING_THRESHOLD
+                ? 'bg-red-50 border-red-200' 
+                : readStats.dailyReads >= readStats.maxDailyReads * SAFETY_CONFIG.CAUTION_THRESHOLD
+                ? 'bg-yellow-50 border-yellow-200'
+                : 'bg-green-50 border-green-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Shield className={`h-5 w-5 mr-2 ${
+                    readStats.dailyReads >= readStats.maxDailyReads * SAFETY_CONFIG.WARNING_THRESHOLD
+                      ? 'text-red-600' 
+                      : readStats.dailyReads >= readStats.maxDailyReads * SAFETY_CONFIG.CAUTION_THRESHOLD
+                      ? 'text-yellow-600'
+                      : 'text-green-600'
+                  }`} />
+                  <span className="font-medium text-gray-900">Firestore Säkerhet</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-600">
+                    Läsningar idag: <span className="font-semibold">{readStats.dailyReads}</span> / {readStats.maxDailyReads}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Cache: {readStats.cacheSize} / {readStats.maxCacheSize}
+                  </div>
+                </div>
+              </div>
+              {readStats.dailyReads >= readStats.maxDailyReads * SAFETY_CONFIG.WARNING_THRESHOLD && (
+                <div className="mt-2 flex items-center text-red-700 text-sm">
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  Varning: Nästan uppnått daglig läsgräns!
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Company Information */}
         {companyData && (

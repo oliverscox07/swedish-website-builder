@@ -1,4 +1,5 @@
 import { UserData } from '../utils/cache';
+import { SAFETY_CONFIG } from '../config/safety';
 
 // Smart caching: Use Firebase for updates, cache for visitors
 const isProduction = import.meta.env.PROD;
@@ -6,7 +7,15 @@ const isStaticDataAvailable = false; // We'll handle caching manually
 
 export class DataService {
   private static cache = new Map<string, { data: UserData; timestamp: number }>();
-  private static CACHE_DURATION = 10 * 60 * 1000; // 10 minutes for visitors
+  private static CACHE_DURATION = SAFETY_CONFIG.CACHE_DURATION;
+  
+  // Safety measures to prevent runaway reads
+  private static dailyReadCount = 0;
+  private static lastReadReset = new Date().toDateString();
+  private static MAX_DAILY_READS = SAFETY_CONFIG.MAX_DAILY_READS;
+  private static MAX_CACHE_SIZE = SAFETY_CONFIG.MAX_CACHE_SIZE;
+  private static lastReadTime = 0;
+  private static MIN_READ_INTERVAL = SAFETY_CONFIG.MIN_READ_INTERVAL;
 
   static async getWebsiteData(userId: string): Promise<UserData | null> {
     // Check cache first - serve cached data to visitors
@@ -34,6 +43,12 @@ export class DataService {
         return cached.data;
       }
 
+      // Safety check before making Firebase read
+      if (!this.checkReadSafety()) {
+        console.error('🚨 Safety check failed - returning cached data or null to prevent runaway reads');
+        return cached?.data || null;
+      }
+
       // Fetch fresh data from Firebase
       let data: UserData | null = await this.fetchFromFirebaseBySlug(slug);
 
@@ -47,6 +62,9 @@ export class DataService {
         this.cache.set(slug, { data, timestamp: now });
         console.log('Updated cache with fresh data from Firebase');
       }
+
+      // Increment read counter
+      this.incrementReadCount();
 
       return data;
     } catch (error) {
@@ -77,6 +95,12 @@ export class DataService {
 
   private static async fetchFromFirebase(userId: string): Promise<UserData | null> {
     try {
+      // Safety check before making Firebase read
+      if (!this.checkReadSafety()) {
+        console.error('🚨 Safety check failed in fetchFromFirebase');
+        return null;
+      }
+
       const { db } = await import('../config/firebase');
       const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
       
@@ -171,6 +195,12 @@ export class DataService {
 
   private static async fetchFromFirebaseBySlug(slug: string): Promise<UserData | null> {
     try {
+      // Safety check before making Firebase read
+      if (!this.checkReadSafety()) {
+        console.error('🚨 Safety check failed in fetchFromFirebaseBySlug');
+        return null;
+      }
+
       const { db } = await import('../config/firebase');
       const { collection, getDocs, query, where } = await import('firebase/firestore');
       
@@ -240,6 +270,12 @@ export class DataService {
 
   private static async checkForOldSlug(oldSlug: string): Promise<UserData | null> {
     try {
+      // Safety check before making Firebase read
+      if (!this.checkReadSafety()) {
+        console.error('🚨 Safety check failed in checkForOldSlug');
+        return null;
+      }
+
       const { db } = await import('../config/firebase');
       const { collection, getDocs } = await import('firebase/firestore');
       
@@ -335,5 +371,73 @@ export class DataService {
 
   static clearCacheBySlug(slug: string): void {
     this.cache.delete(slug);
+  }
+
+  // Safety check methods
+  private static checkReadSafety(): boolean {
+    const now = Date.now();
+    const today = new Date().toDateString();
+    
+    // Reset daily counter if it's a new day
+    if (today !== this.lastReadReset) {
+      this.dailyReadCount = 0;
+      this.lastReadReset = today;
+    }
+    
+    // Check daily limit
+    if (this.dailyReadCount >= this.MAX_DAILY_READS) {
+      console.error('🚨 DAILY READ LIMIT REACHED! Maximum reads per day exceeded.');
+      return false;
+    }
+    
+    // Check rate limiting (minimum 1 second between reads)
+    if (now - this.lastReadTime < this.MIN_READ_INTERVAL) {
+      console.warn('⚠️ Rate limiting: Too many reads too quickly');
+      return false;
+    }
+    
+    // Check cache size limit
+    if (this.cache.size >= this.MAX_CACHE_SIZE) {
+      console.warn('⚠️ Cache size limit reached, clearing oldest entries');
+      this.clearOldestCacheEntries();
+    }
+    
+    return true;
+  }
+
+  private static clearOldestCacheEntries(): void {
+    const entries = Array.from(this.cache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    
+    // Remove oldest 20% of entries
+    const toRemove = Math.ceil(entries.length * 0.2);
+    for (let i = 0; i < toRemove; i++) {
+      this.cache.delete(entries[i][0]);
+    }
+    console.log(`🧹 Cleared ${toRemove} oldest cache entries`);
+  }
+
+  private static incrementReadCount(): void {
+    this.dailyReadCount++;
+    this.lastReadTime = Date.now();
+    
+    // Log every 100 reads for monitoring
+    if (this.dailyReadCount % 100 === 0) {
+      console.log(`📊 Firestore reads today: ${this.dailyReadCount}/${this.MAX_DAILY_READS}`);
+    }
+    
+    // Warning at configured threshold
+    if (this.dailyReadCount >= this.MAX_DAILY_READS * SAFETY_CONFIG.WARNING_THRESHOLD) {
+      console.warn(`⚠️ WARNING: ${this.dailyReadCount}/${this.MAX_DAILY_READS} reads used today!`);
+    }
+  }
+
+  static getReadStats(): { dailyReads: number; maxDailyReads: number; cacheSize: number; maxCacheSize: number } {
+    return {
+      dailyReads: this.dailyReadCount,
+      maxDailyReads: this.MAX_DAILY_READS,
+      cacheSize: this.cache.size,
+      maxCacheSize: this.MAX_CACHE_SIZE
+    };
   }
 }
