@@ -86,11 +86,19 @@ const ProductManagement: React.FC = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Bilden är för stor. Maximal storlek är 5MB.');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (e) => {
+        const result = e.target?.result as string;
+        console.log('Image loaded, size:', result.length, 'characters');
         setFormData(prev => ({
           ...prev,
-          imageUrl: e.target?.result as string
+          imageUrl: result
         }));
       };
       reader.readAsDataURL(file);
@@ -126,35 +134,36 @@ const ProductManagement: React.FC = () => {
         updatedAt: new Date()
       };
 
+      // Prepare product data for Firebase
+      const productData = {
+        id: editingProduct?.id || Date.now().toString(),
+        name: newProduct.name,
+        description: newProduct.description,
+        price: newProduct.price,
+        type: newProduct.type,
+        createdAt: newProduct.createdAt,
+        updatedAt: newProduct.updatedAt
+      };
+
+      // Only add imageUrl if it exists and is not too large
+      if (newProduct.imageUrl && newProduct.imageUrl.length < 1000000) { // Max 1MB for base64
+        productData.imageUrl = newProduct.imageUrl;
+      }
+
       if (editingProduct) {
         // Update existing product in subcollection
-        await setDoc(doc(db, 'users', currentUser.uid, 'products', editingProduct.id), {
-          id: newProduct.id, // Keep the original ID
-          name: newProduct.name,
-          description: newProduct.description,
-          price: newProduct.price,
-          type: newProduct.type,
-          imageUrl: newProduct.imageUrl,
-          createdAt: newProduct.createdAt,
-          updatedAt: newProduct.updatedAt
-        });
+        await setDoc(doc(db, 'users', currentUser.uid, 'products', editingProduct.id), productData);
         
         // Update local state
         const updatedProducts = products.map(p => p.id === editingProduct.id ? newProduct : p);
         setProducts(updatedProducts);
       } else {
         // Add new product to subcollection
-        const newProductId = Date.now().toString(); // Generate ID like the existing product
+        const newProductId = Date.now().toString();
         const newProductRef = doc(db, 'users', currentUser.uid, 'products', newProductId);
         await setDoc(newProductRef, {
-          id: newProductId, // Store the ID in the document
-          name: newProduct.name,
-          description: newProduct.description,
-          price: newProduct.price,
-          type: newProduct.type,
-          imageUrl: newProduct.imageUrl,
-          createdAt: newProduct.createdAt,
-          updatedAt: newProduct.updatedAt
+          ...productData,
+          id: newProductId
         });
         
         // Update local state with new product
@@ -170,7 +179,14 @@ const ProductManagement: React.FC = () => {
 
     } catch (error) {
       console.error('Error saving product:', error);
-      setError('Kunde inte spara produkt. Försök igen.');
+      console.error('Error details:', {
+        error: error,
+        errorMessage: error.message,
+        errorCode: error.code,
+        currentUser: currentUser?.uid,
+        formData: formData
+      });
+      setError(`Kunde inte spara produkt: ${error.message || 'Okänt fel'}`);
     } finally {
       setSaving(false);
     }
