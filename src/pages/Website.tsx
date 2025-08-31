@@ -46,21 +46,11 @@ const Website: React.FC = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Only try to load from cache first (no Firebase read)
-    const cachedData = DataService.getWebsiteDataBySlug(slug || '');
-    if (cachedData) {
-      setUserData(cachedData);
-      setLoading(false);
-    }
-    
-    // Set up real-time listener for instant updates and initial data
     if (slug) {
+      // Always load data from Firebase first (simple and reliable)
+      loadWebsiteData();
+      // Set up real-time listener for updates
       setupRealtimeListener();
-      
-      // If no cached data, try to populate cache once (this is the only Firebase read for visitors)
-      if (!cachedData) {
-        populateCacheOnce();
-      }
     }
     
     return () => {
@@ -85,7 +75,7 @@ const Website: React.FC = () => {
         DataService.clearCache();
       }
       
-      // Only try to get data from cache - never fetch from Firebase for visitors
+      // Always fetch from Firebase (simple and reliable)
       const data = await DataService.getWebsiteDataBySlug(slug);
       
       if (data) {
@@ -98,8 +88,7 @@ const Website: React.FC = () => {
           return;
         }
       } else {
-        // No cached data available - this is normal for new visitors
-        setError('Ingen cachad data tillgänglig. Ladda om sidan eller vänta tills ägaren uppdaterar webbplatsen.');
+        setError('Webbplats hittades inte');
       }
     } catch (error) {
       console.error('Error loading website data:', error);
@@ -109,63 +98,7 @@ const Website: React.FC = () => {
     }
   };
 
-  const populateCacheOnce = async () => {
-    if (!slug) return;
-    
-    try {
-      console.log('Populating cache once for initial data...');
-      
-      // Find the user with this slug
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('companyData.slug', '==', slug));
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        const userId = doc.id;
-        const data = doc.data();
-        
-        if (data.companyData) {
-          // Fetch products from subcollection
-          const productsRef = collection(db, 'users', userId, 'products');
-          const productsSnapshot = await getDocs(productsRef);
-          
-          const products = [];
-          productsSnapshot.forEach((productDoc) => {
-            const productData = productDoc.data();
-            products.push({
-              id: productData.id || productDoc.id,
-              name: productData.name,
-              description: productData.description,
-              price: productData.price,
-              type: productData.type,
-              imageUrl: productData.imageUrl,
-              createdAt: productData.createdAt?.toDate() || new Date(),
-              updatedAt: productData.updatedAt?.toDate() || new Date()
-            });
-          });
-          
-          const initialData = {
-            companyData: data.companyData,
-            products: products
-          };
-          
-          // Populate cache and update component
-          DataService.cache.set(slug, { data: initialData, timestamp: Date.now() });
-          setUserData(initialData);
-          setLoading(false);
-          console.log('Cache populated with initial data');
-        }
-      } else {
-        setError('Webbplats hittades inte');
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('Error populating cache:', error);
-      setError('Kunde inte ladda webbplats');
-      setLoading(false);
-    }
-  };
+
 
   const setupRealtimeListener = async () => {
     if (!slug) return;
@@ -215,26 +148,17 @@ const Website: React.FC = () => {
             setUserData(updatedData);
             DataService.cache.set(slug, { data: updatedData, timestamp: Date.now() });
             console.log('Real-time update: Updated cache with fresh data');
-            
-            // Hide loading state since we now have data
-            setLoading(false);
           }
-        } else {
-          setError('Webbplats hittades inte');
-          setLoading(false);
         }
       }, (error) => {
         // Handle errors in the listener
         console.error('Real-time listener error:', error);
-        setLoading(false);
       });
       
       window.realtimeUnsubscribers.push(unsubscribe);
       
     } catch (error) {
       console.error('Error setting up real-time listener:', error);
-      setError('Kunde inte ansluta till webbplatsen');
-      setLoading(false);
     }
   };
 

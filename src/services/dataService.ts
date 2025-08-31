@@ -24,18 +24,35 @@ export class DataService {
   }
 
   static async getWebsiteDataBySlug(slug: string): Promise<UserData | null> {
-    // Check cache first - serve cached data to visitors
-    const cached = this.cache.get(slug);
-    const now = Date.now();
-    
-    if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
-      console.log('Serving cached data for visitor (by slug, no Firebase read)');
-      return cached.data;
-    }
+    try {
+      // Check cache first
+      const cached = this.cache.get(slug);
+      const now = Date.now();
+      
+      if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+        console.log('Serving cached data for visitor');
+        return cached.data;
+      }
 
-    // If no cached data, return null - don't fetch from Firebase for visitors
-    console.log('No cached data available for slug, returning null (no Firebase read)');
-    return null;
+      // Fetch fresh data from Firebase
+      let data: UserData | null = await this.fetchFromFirebaseBySlug(slug);
+
+      // If no data found, check if this might be an old slug
+      if (!data) {
+        data = await this.checkForOldSlug(slug);
+      }
+
+      if (data) {
+        // Cache the result for future visitors
+        this.cache.set(slug, { data, timestamp: now });
+        console.log('Updated cache with fresh data from Firebase');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching website data by slug:', error);
+      return null;
+    }
   }
 
   private static async fetchFromStaticFiles(userId: string): Promise<UserData | null> {
