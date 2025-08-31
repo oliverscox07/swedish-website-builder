@@ -91,16 +91,35 @@ export class DataService {
   private static async fetchFromFirebase(userId: string): Promise<UserData | null> {
     try {
       const { db } = await import('../config/firebase');
-      const { doc, getDoc } = await import('firebase/firestore');
+      const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
       
       const userDoc = await getDoc(doc(db, 'users', userId));
       
       if (userDoc.exists()) {
         const data = userDoc.data();
-        if (data.companyData && data.products) {
+        if (data.companyData) {
+          // Fetch products from subcollection
+          const productsRef = collection(db, 'users', userId, 'products');
+          const productsSnapshot = await getDocs(productsRef);
+          
+          const products: any[] = [];
+          productsSnapshot.forEach((doc) => {
+            const productData = doc.data();
+            products.push({
+              id: productData.id || doc.id,
+              name: productData.name,
+              description: productData.description,
+              price: productData.price,
+              type: productData.type,
+              imageUrl: productData.imageUrl,
+              createdAt: productData.createdAt?.toDate() || new Date(),
+              updatedAt: productData.updatedAt?.toDate() || new Date()
+            });
+          });
+          
           return {
             companyData: data.companyData,
-            products: data.products
+            products: products
           };
         }
       }
@@ -155,11 +174,32 @@ export class DataService {
       
       if (!querySnapshot.empty) {
         const doc = querySnapshot.docs[0];
+        const userId = doc.id;
         const data = doc.data();
-        if (data.companyData && data.products) {
+        
+        if (data.companyData) {
+          // Fetch products from subcollection
+          const productsRef = collection(db, 'users', userId, 'products');
+          const productsSnapshot = await getDocs(productsRef);
+          
+          const products: any[] = [];
+          productsSnapshot.forEach((productDoc) => {
+            const productData = productDoc.data();
+            products.push({
+              id: productData.id || productDoc.id,
+              name: productData.name,
+              description: productData.description,
+              price: productData.price,
+              type: productData.type,
+              imageUrl: productData.imageUrl,
+              createdAt: productData.createdAt?.toDate() || new Date(),
+              updatedAt: productData.updatedAt?.toDate() || new Date()
+            });
+          });
+          
           return {
             companyData: data.companyData,
-            products: data.products
+            products: products
           };
         }
       }
@@ -181,13 +221,33 @@ export class DataService {
       const querySnapshot = await getDocs(usersRef);
       
       for (const doc of querySnapshot.docs) {
+        const userId = doc.id;
         const data = doc.data();
-        if (data.companyData && data.products && data.oldSlugs) {
+        if (data.companyData && data.oldSlugs) {
           // Check if this user has the old slug in their redirect list
           if (data.oldSlugs.includes(oldSlug)) {
+            // Fetch products from subcollection
+            const productsRef = collection(db, 'users', userId, 'products');
+            const productsSnapshot = await getDocs(productsRef);
+            
+            const products: any[] = [];
+            productsSnapshot.forEach((productDoc) => {
+              const productData = productDoc.data();
+              products.push({
+                id: productData.id || productDoc.id,
+                name: productData.name,
+                description: productData.description,
+                price: productData.price,
+                type: productData.type,
+                imageUrl: productData.imageUrl,
+                createdAt: productData.createdAt?.toDate() || new Date(),
+                updatedAt: productData.updatedAt?.toDate() || new Date()
+              });
+            });
+            
             return {
               companyData: data.companyData,
-              products: data.products
+              products: products
             };
           }
         }

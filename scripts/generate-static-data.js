@@ -40,11 +40,12 @@ async function generateStaticData() {
     const usersSnapshot = await getDocs(collection(db, 'users'));
     const staticData = {};
     
-    usersSnapshot.forEach((doc) => {
+    for (const doc of usersSnapshot.docs) {
       const userData = doc.data();
+      const userId = doc.id;
       
       // Only include users with company data
-      if (userData.companyData && userData.products) {
+      if (userData.companyData) {
         // Ensure slug exists
         const companyData = userData.companyData;
         if (!companyData.slug) {
@@ -62,13 +63,32 @@ async function generateStaticData() {
           companyData.slug = baseSlug;
         }
         
-        staticData[doc.id] = {
+        // Fetch products from subcollection
+        const productsRef = collection(db, 'users', userId, 'products');
+        const productsSnapshot = await getDocs(productsRef);
+        
+        const products = [];
+        productsSnapshot.forEach((productDoc) => {
+          const productData = productDoc.data();
+          products.push({
+            id: productData.id || productDoc.id,
+            name: productData.name,
+            description: productData.description,
+            price: productData.price,
+            type: productData.type,
+            imageUrl: productData.imageUrl,
+            createdAt: productData.createdAt?.toDate?.() || new Date(),
+            updatedAt: productData.updatedAt?.toDate?.() || new Date()
+          });
+        });
+        
+        staticData[userId] = {
           companyData: companyData,
-          products: userData.products,
+          products: products,
           lastUpdated: new Date().toISOString()
         };
       }
-    });
+    }
     
     // Generate individual files for each company
     for (const [userId, data] of Object.entries(staticData)) {
