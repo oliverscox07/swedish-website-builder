@@ -46,9 +46,14 @@ const Website: React.FC = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadWebsiteData();
+    // Only try to load from cache first (no Firebase read)
+    const cachedData = DataService.getWebsiteDataBySlug(slug || '');
+    if (cachedData) {
+      setUserData(cachedData);
+      setLoading(false);
+    }
     
-    // Set up real-time listener for instant updates
+    // Set up real-time listener for instant updates and initial data
     if (slug) {
       setupRealtimeListener();
     }
@@ -75,6 +80,7 @@ const Website: React.FC = () => {
         DataService.clearCache();
       }
       
+      // Only try to get data from cache - never fetch from Firebase for visitors
       const data = await DataService.getWebsiteDataBySlug(slug);
       
       if (data) {
@@ -87,7 +93,8 @@ const Website: React.FC = () => {
           return;
         }
       } else {
-        setError('Webbplats hittades inte');
+        // No cached data available - this is normal for new visitors
+        setError('Ingen cachad data tillgänglig. Ladda om sidan eller vänta tills ägaren uppdaterar webbplatsen.');
       }
     } catch (error) {
       console.error('Error loading website data:', error);
@@ -145,7 +152,13 @@ const Website: React.FC = () => {
             setUserData(updatedData);
             DataService.cache.set(slug, { data: updatedData, timestamp: Date.now() });
             console.log('Real-time update: Updated cache with fresh data');
+            
+            // Hide loading state since we now have data
+            setLoading(false);
           }
+        } else {
+          setError('Webbplats hittades inte');
+          setLoading(false);
         }
       });
       
@@ -153,6 +166,8 @@ const Website: React.FC = () => {
       
     } catch (error) {
       console.error('Error setting up real-time listener:', error);
+      setError('Kunde inte ansluta till webbplatsen');
+      setLoading(false);
     }
   };
 

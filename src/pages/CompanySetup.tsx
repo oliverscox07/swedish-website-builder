@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Sparkles, Building2, MapPin, Instagram, Facebook, Music, Users, Save, ArrowRight, Phone } from 'lucide-react';
+import { DataService } from '../services/dataService';
 
 interface CompanyData {
   name: string;
@@ -164,6 +165,14 @@ const CompanySetup: React.FC = () => {
         companyData: cleanData,
         updatedAt: new Date()
       }, { merge: true });
+
+      // Populate cache with initial data (empty products array)
+      const initialData = {
+        companyData: cleanData,
+        products: []
+      };
+      DataService.cache.set(cleanData.slug, { data: initialData, timestamp: Date.now() });
+      console.log('Populated cache with initial company data');
 
       // Navigate immediately with the company data
       navigate('/dashboard', { 

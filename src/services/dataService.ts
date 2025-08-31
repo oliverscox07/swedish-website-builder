@@ -14,57 +14,28 @@ export class DataService {
     const now = Date.now();
     
     if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
-      console.log('Serving cached data for visitor');
+      console.log('Serving cached data for visitor (no Firebase read)');
       return cached.data;
     }
 
-    try {
-      // Fetch fresh data from Firebase
-      const data = await this.fetchFromFirebase(userId);
-
-      if (data) {
-        // Cache the result for future visitors
-        this.cache.set(userId, { data, timestamp: now });
-        console.log('Updated cache with fresh data');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error fetching website data:', error);
-      return null;
-    }
+    // If no cached data, return null - don't fetch from Firebase for visitors
+    console.log('No cached data available, returning null (no Firebase read)');
+    return null;
   }
 
   static async getWebsiteDataBySlug(slug: string): Promise<UserData | null> {
-    try {
-      // Check cache first - serve cached data to visitors
-      const cached = this.cache.get(slug);
-      const now = Date.now();
-      
-      if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
-        console.log('Serving cached data for visitor (by slug)');
-        return cached.data;
-      }
-
-      // Fetch fresh data from Firebase
-      let data: UserData | null = await this.fetchFromFirebaseBySlug(slug);
-
-      // If no data found, check if this might be an old slug
-      if (!data) {
-        data = await this.checkForOldSlug(slug);
-      }
-
-      if (data) {
-        // Cache the result for future visitors
-        this.cache.set(slug, { data, timestamp: now });
-        console.log('Updated cache with fresh data (by slug)');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error fetching website data by slug:', error);
-      return null;
+    // Check cache first - serve cached data to visitors
+    const cached = this.cache.get(slug);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+      console.log('Serving cached data for visitor (by slug, no Firebase read)');
+      return cached.data;
     }
+
+    // If no cached data, return null - don't fetch from Firebase for visitors
+    console.log('No cached data available for slug, returning null (no Firebase read)');
+    return null;
   }
 
   private static async fetchFromStaticFiles(userId: string): Promise<UserData | null> {

@@ -198,6 +198,24 @@ const ProductManagement: React.FC = () => {
       // Clear cache to ensure website shows updated data
       await clearAllCaches();
       
+      // Populate cache with updated data for instant website updates
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data.companyData?.slug) {
+            const updatedData = {
+              companyData: data.companyData,
+              products: [...products, productWithId] // Include the new product
+            };
+            DataService.cache.set(data.companyData.slug, { data: updatedData, timestamp: Date.now() });
+            console.log('Populated cache with updated product data');
+          }
+        }
+      } catch (error) {
+        console.error('Error populating cache:', error);
+      }
+      
       setSuccess(editingProduct ? 'Produkt uppdaterad!' : 'Produkt tillagd!');
       cancelForm();
 
