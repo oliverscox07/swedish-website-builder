@@ -85,24 +85,44 @@ export class DataService {
       if (userDoc.exists()) {
         const data = userDoc.data();
         if (data.companyData) {
-          // Fetch products from subcollection
-          const productsRef = collection(db, 'users', userId, 'products');
-          const productsSnapshot = await getDocs(productsRef);
+          let products: any[] = [];
           
-          const products: any[] = [];
-          productsSnapshot.forEach((doc) => {
-            const productData = doc.data();
-            products.push({
-              id: productData.id || doc.id,
-              name: productData.name,
-              description: productData.description,
-              price: productData.price,
-              type: productData.type,
-              imageUrl: productData.imageUrl,
-              createdAt: productData.createdAt?.toDate() || new Date(),
-              updatedAt: productData.updatedAt?.toDate() || new Date()
+          // First try to get products from subcollection (new format)
+          try {
+            const productsRef = collection(db, 'users', userId, 'products');
+            const productsSnapshot = await getDocs(productsRef);
+            
+            productsSnapshot.forEach((doc) => {
+              const productData = doc.data();
+              products.push({
+                id: productData.id || doc.id,
+                name: productData.name,
+                description: productData.description,
+                price: productData.price,
+                type: productData.type,
+                imageUrl: productData.imageUrl,
+                createdAt: productData.createdAt?.toDate() || new Date(),
+                updatedAt: productData.updatedAt?.toDate() || new Date()
+              });
             });
-          });
+          } catch (error) {
+            console.log('No products subcollection found, checking old array format');
+          }
+          
+          // If no products from subcollection, check old array format
+          if (products.length === 0 && data.products && Array.isArray(data.products)) {
+            console.log('Using old array format for products');
+            products = data.products.map((product: any) => ({
+              id: product.id || Date.now().toString(),
+              name: product.name,
+              description: product.description,
+              price: product.price,
+              type: product.type,
+              imageUrl: product.imageUrl,
+              createdAt: product.createdAt?.toDate() || new Date(),
+              updatedAt: product.updatedAt?.toDate() || new Date()
+            }));
+          }
           
           return {
             companyData: data.companyData,
@@ -165,24 +185,44 @@ export class DataService {
         const data = doc.data();
         
         if (data.companyData) {
-          // Fetch products from subcollection
-          const productsRef = collection(db, 'users', userId, 'products');
-          const productsSnapshot = await getDocs(productsRef);
+          let products: any[] = [];
           
-          const products: any[] = [];
-          productsSnapshot.forEach((productDoc) => {
-            const productData = productDoc.data();
-            products.push({
-              id: productData.id || productDoc.id,
-              name: productData.name,
-              description: productData.description,
-              price: productData.price,
-              type: productData.type,
-              imageUrl: productData.imageUrl,
-              createdAt: productData.createdAt?.toDate() || new Date(),
-              updatedAt: productData.updatedAt?.toDate() || new Date()
+          // First try to get products from subcollection (new format)
+          try {
+            const productsRef = collection(db, 'users', userId, 'products');
+            const productsSnapshot = await getDocs(productsRef);
+            
+            productsSnapshot.forEach((productDoc) => {
+              const productData = productDoc.data();
+              products.push({
+                id: productData.id || productDoc.id,
+                name: productData.name,
+                description: productData.description,
+                price: productData.price,
+                type: productData.type,
+                imageUrl: productData.imageUrl,
+                createdAt: productData.createdAt?.toDate() || new Date(),
+                updatedAt: productData.updatedAt?.toDate() || new Date()
+              });
             });
-          });
+          } catch (error) {
+            console.log('No products subcollection found, checking old array format');
+          }
+          
+          // If no products from subcollection, check old array format
+          if (products.length === 0 && data.products && Array.isArray(data.products)) {
+            console.log('Using old array format for products');
+            products = data.products.map((product: any) => ({
+              id: product.id || Date.now().toString(),
+              name: product.name,
+              description: product.description,
+              price: product.price,
+              type: product.type,
+              imageUrl: product.imageUrl,
+              createdAt: product.createdAt?.toDate() || new Date(),
+              updatedAt: product.updatedAt?.toDate() || new Date()
+            }));
+          }
           
           return {
             companyData: data.companyData,
@@ -213,24 +253,44 @@ export class DataService {
         if (data.companyData && data.oldSlugs) {
           // Check if this user has the old slug in their redirect list
           if (data.oldSlugs.includes(oldSlug)) {
-            // Fetch products from subcollection
-            const productsRef = collection(db, 'users', userId, 'products');
-            const productsSnapshot = await getDocs(productsRef);
+            let products: any[] = [];
             
-            const products: any[] = [];
-            productsSnapshot.forEach((productDoc) => {
-              const productData = productDoc.data();
-              products.push({
-                id: productData.id || productDoc.id,
-                name: productData.name,
-                description: productData.description,
-                price: productData.price,
-                type: productData.type,
-                imageUrl: productData.imageUrl,
-                createdAt: productData.createdAt?.toDate() || new Date(),
-                updatedAt: productData.updatedAt?.toDate() || new Date()
+            // First try to get products from subcollection (new format)
+            try {
+              const productsRef = collection(db, 'users', userId, 'products');
+              const productsSnapshot = await getDocs(productsRef);
+              
+              productsSnapshot.forEach((productDoc) => {
+                const productData = productDoc.data();
+                products.push({
+                  id: productData.id || productDoc.id,
+                  name: productData.name,
+                  description: productData.description,
+                  price: productData.price,
+                  type: productData.type,
+                  imageUrl: productData.imageUrl,
+                  createdAt: productData.createdAt?.toDate() || new Date(),
+                  updatedAt: productData.updatedAt?.toDate() || new Date()
+                });
               });
-            });
+            } catch (error) {
+              console.log('No products subcollection found, checking old array format');
+            }
+            
+            // If no products from subcollection, check old array format
+            if (products.length === 0 && data.products && Array.isArray(data.products)) {
+              console.log('Using old array format for products');
+              products = data.products.map((product: any) => ({
+                id: product.id || Date.now().toString(),
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                type: product.type,
+                imageUrl: product.imageUrl,
+                createdAt: product.createdAt?.toDate() || new Date(),
+                updatedAt: product.updatedAt?.toDate() || new Date()
+              }));
+            }
             
             return {
               companyData: data.companyData,
