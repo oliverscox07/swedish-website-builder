@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Building2, MapPin, Instagram, Facebook, Music, Users, Package, Settings, Phone, Mail } from 'lucide-react';
+import { Building2, MapPin, Instagram, Facebook, Music, Users, Package, Settings, Phone, Mail, RefreshCw } from 'lucide-react';
 import { DataService } from '../services/dataService';
 import { UserData } from '../utils/cache';
 
@@ -40,7 +40,7 @@ const Website: React.FC = () => {
     loadWebsiteData();
   }, [slug]);
 
-  const loadWebsiteData = async () => {
+  const loadWebsiteData = async (forceRefresh = false) => {
     if (!slug) {
       setError('Inget företagsnamn angivet');
       setLoading(false);
@@ -48,6 +48,11 @@ const Website: React.FC = () => {
     }
 
     try {
+      // Clear cache if forcing refresh
+      if (forceRefresh) {
+        DataService.clearCache();
+      }
+      
       const data = await DataService.getWebsiteDataBySlug(slug);
       
       if (data) {
@@ -99,7 +104,14 @@ const Website: React.FC = () => {
       {/* Header */}
       <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center">
+          <div className="text-center relative">
+            <button
+              onClick={() => loadWebsiteData(true)}
+              className="absolute top-0 right-0 p-2 text-white hover:text-gray-200 transition-colors"
+              title="Uppdatera sida"
+            >
+              <RefreshCw className="h-5 w-5" />
+            </button>
             <h1 className="text-4xl md:text-6xl font-bold mb-4">
               {companyData.name}
             </h1>

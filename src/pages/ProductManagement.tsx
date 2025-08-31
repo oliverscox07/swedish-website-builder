@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { Plus, Edit, Trash2, Package, Settings, ArrowLeft, Save, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { clearUserCache } from '../utils/cache';
 
 interface Product {
   id: string;
@@ -157,6 +158,11 @@ const ProductManagement: React.FC = () => {
         // Update local state
         const updatedProducts = products.map(p => p.id === editingProduct.id ? newProduct : p);
         setProducts(updatedProducts);
+        
+        // Clear cache to ensure website shows updated data
+        if (currentUser) {
+          clearUserCache(currentUser.uid);
+        }
       } else {
         // Add new product to subcollection
         const newProductId = Date.now().toString();
@@ -170,6 +176,12 @@ const ProductManagement: React.FC = () => {
         const productWithId = { ...newProduct, id: newProductId };
         setProducts([...products, productWithId]);
       }
+      
+      // Clear cache to ensure website shows updated data
+      if (currentUser) {
+        clearUserCache(currentUser.uid);
+      }
+      
       setSuccess(editingProduct ? 'Produkt uppdaterad!' : 'Produkt tillagd!');
       cancelForm();
 
@@ -218,6 +230,12 @@ const ProductManagement: React.FC = () => {
       // Update local state
       const updatedProducts = products.filter(p => p.id !== productId);
       setProducts(updatedProducts);
+      
+      // Clear cache to ensure website shows updated data
+      if (currentUser) {
+        clearUserCache(currentUser.uid);
+      }
+      
       setSuccess('Produkt borttagen!');
 
       setTimeout(() => {
