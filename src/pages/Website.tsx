@@ -141,7 +141,10 @@ const Website: React.FC = () => {
               products: products
             };
             
+            // Update both the component state and the cache
             setUserData(updatedData);
+            DataService.cache.set(slug, { data: updatedData, timestamp: Date.now() });
+            console.log('Real-time update: Updated cache with fresh data');
           }
         }
       });

@@ -1,38 +1,31 @@
 import { UserData } from '../utils/cache';
 
-// Always use Firebase for real-time updates
+// Smart caching: Use Firebase for updates, cache for visitors
 const isProduction = import.meta.env.PROD;
-const isStaticDataAvailable = false; // Disable static files to ensure real-time updates
+const isStaticDataAvailable = false; // We'll handle caching manually
 
 export class DataService {
   private static cache = new Map<string, { data: UserData; timestamp: number }>();
-  private static CACHE_DURATION = 30 * 1000; // 30 seconds for faster updates
+  private static CACHE_DURATION = 10 * 60 * 1000; // 10 minutes for visitors
 
   static async getWebsiteData(userId: string): Promise<UserData | null> {
-    // Check cache first
+    // Check cache first - serve cached data to visitors
     const cached = this.cache.get(userId);
     const now = Date.now();
     
     if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+      console.log('Serving cached data for visitor');
       return cached.data;
     }
 
     try {
-      let data: UserData | null = null;
-
-      if (isStaticDataAvailable) {
-        // Try static files first in production
-        data = await this.fetchFromStaticFiles(userId);
-      }
-
-      if (!data) {
-        // Fallback to Firebase
-        data = await this.fetchFromFirebase(userId);
-      }
+      // Fetch fresh data from Firebase
+      const data = await this.fetchFromFirebase(userId);
 
       if (data) {
-        // Cache the result
+        // Cache the result for future visitors
         this.cache.set(userId, { data, timestamp: now });
+        console.log('Updated cache with fresh data');
       }
 
       return data;
@@ -44,21 +37,27 @@ export class DataService {
 
   static async getWebsiteDataBySlug(slug: string): Promise<UserData | null> {
     try {
-      let data: UserData | null = null;
-
-      if (isStaticDataAvailable) {
-        // Try static files first in production
-        data = await this.fetchFromStaticFilesBySlug(slug);
+      // Check cache first - serve cached data to visitors
+      const cached = this.cache.get(slug);
+      const now = Date.now();
+      
+      if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+        console.log('Serving cached data for visitor (by slug)');
+        return cached.data;
       }
 
-      if (!data) {
-        // Fallback to Firebase
-        data = await this.fetchFromFirebaseBySlug(slug);
-      }
+      // Fetch fresh data from Firebase
+      let data: UserData | null = await this.fetchFromFirebaseBySlug(slug);
 
       // If no data found, check if this might be an old slug
       if (!data) {
         data = await this.checkForOldSlug(slug);
+      }
+
+      if (data) {
+        // Cache the result for future visitors
+        this.cache.set(slug, { data, timestamp: now });
+        console.log('Updated cache with fresh data (by slug)');
       }
 
       return data;
@@ -284,5 +283,9 @@ export class DataService {
 
   static clearUserCache(userId: string): void {
     this.cache.delete(userId);
+  }
+
+  static clearCacheBySlug(slug: string): void {
+    this.cache.delete(slug);
   }
 }

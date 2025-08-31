@@ -5,6 +5,7 @@ import { db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { Plus, Edit, Trash2, Package, Settings, ArrowLeft, Save, X, Upload, Image as ImageIcon } from 'lucide-react';
 import { clearUserCache } from '../utils/cache';
+import { DataService } from '../services/dataService';
 
 interface Product {
   id: string;
@@ -35,6 +36,25 @@ const ProductManagement: React.FC = () => {
     type: 'product' as 'product' | 'service',
     imageUrl: ''
   });
+
+  const clearAllCaches = async () => {
+    if (currentUser) {
+      clearUserCache(currentUser.uid);
+      // Also clear cache by slug if we have company data
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data.companyData?.slug) {
+            DataService.clearCacheBySlug(data.companyData.slug);
+            console.log('Cleared cache for slug:', data.companyData.slug);
+          }
+        }
+      } catch (error) {
+        console.error('Error clearing slug cache:', error);
+      }
+    }
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -160,9 +180,7 @@ const ProductManagement: React.FC = () => {
         setProducts(updatedProducts);
         
         // Clear cache to ensure website shows updated data
-        if (currentUser) {
-          clearUserCache(currentUser.uid);
-        }
+        await clearAllCaches();
       } else {
         // Add new product to subcollection
         const newProductId = Date.now().toString();
@@ -178,9 +196,7 @@ const ProductManagement: React.FC = () => {
       }
       
       // Clear cache to ensure website shows updated data
-      if (currentUser) {
-        clearUserCache(currentUser.uid);
-      }
+      await clearAllCaches();
       
       setSuccess(editingProduct ? 'Produkt uppdaterad!' : 'Produkt tillagd!');
       cancelForm();
@@ -232,9 +248,7 @@ const ProductManagement: React.FC = () => {
       setProducts(updatedProducts);
       
       // Clear cache to ensure website shows updated data
-      if (currentUser) {
-        clearUserCache(currentUser.uid);
-      }
+      await clearAllCaches();
       
       setSuccess('Produkt borttagen!');
 
