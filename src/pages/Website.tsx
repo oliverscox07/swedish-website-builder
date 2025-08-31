@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Building2, MapPin, Instagram, Facebook, Music, Users, Package, Settings, Phone, Mail, RefreshCw } from 'lucide-react';
 import { DataService } from '../services/dataService';
 import { UserData } from '../utils/cache';
+import { db } from '../config/firebase';
+import { collection, query, where, onSnapshot, doc, onSnapshot as onDocSnapshot, getDocs } from 'firebase/firestore';
 
 interface CompanyData {
   name: string;
@@ -29,6 +31,13 @@ interface UserData {
   products: Product[];
 }
 
+// Extend Window interface for real-time listeners
+declare global {
+  interface Window {
+    realtimeUnsubscribers?: (() => void)[];
+  }
+}
+
 const Website: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -38,6 +47,19 @@ const Website: React.FC = () => {
 
   useEffect(() => {
     loadWebsiteData();
+    
+    // Set up real-time listener for instant updates
+    if (slug) {
+      setupRealtimeListener();
+    }
+    
+    return () => {
+      // Cleanup listeners when component unmounts
+      if (window.realtimeUnsubscribers) {
+        window.realtimeUnsubscribers.forEach(unsub => unsub());
+        window.realtimeUnsubscribers = [];
+      }
+    };
   }, [slug]);
 
   const loadWebsiteData = async (forceRefresh = false) => {
@@ -72,6 +94,62 @@ const Website: React.FC = () => {
       setError('Kunde inte ladda webbplats');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const setupRealtimeListener = async () => {
+    if (!slug) return;
+
+    try {
+      // Initialize unsubscribers array if it doesn't exist
+      if (!window.realtimeUnsubscribers) {
+        window.realtimeUnsubscribers = [];
+      }
+
+      // Find the user with this slug
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('companyData.slug', '==', slug));
+      
+      const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+        if (!querySnapshot.empty) {
+          const doc = querySnapshot.docs[0];
+          const userId = doc.id;
+          const data = doc.data();
+          
+          if (data.companyData) {
+            // Fetch products from subcollection
+            const productsRef = collection(db, 'users', userId, 'products');
+            const productsSnapshot = await getDocs(productsRef);
+            
+            const products = [];
+            productsSnapshot.forEach((productDoc) => {
+              const productData = productDoc.data();
+              products.push({
+                id: productData.id || productDoc.id,
+                name: productData.name,
+                description: productData.description,
+                price: productData.price,
+                type: productData.type,
+                imageUrl: productData.imageUrl,
+                createdAt: productData.createdAt?.toDate() || new Date(),
+                updatedAt: productData.updatedAt?.toDate() || new Date()
+              });
+            });
+            
+            const updatedData = {
+              companyData: data.companyData,
+              products: products
+            };
+            
+            setUserData(updatedData);
+          }
+        }
+      });
+      
+      window.realtimeUnsubscribers.push(unsubscribe);
+      
+    } catch (error) {
+      console.error('Error setting up real-time listener:', error);
     }
   };
 

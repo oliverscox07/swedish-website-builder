@@ -1,12 +1,12 @@
 import { UserData } from '../utils/cache';
 
-// Check if we're in production (static files available)
+// Always use Firebase for real-time updates
 const isProduction = import.meta.env.PROD;
-const isStaticDataAvailable = isProduction; // Only use static files in production
+const isStaticDataAvailable = false; // Disable static files to ensure real-time updates
 
 export class DataService {
   private static cache = new Map<string, { data: UserData; timestamp: number }>();
-  private static CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private static CACHE_DURATION = 30 * 1000; // 30 seconds for faster updates
 
   static async getWebsiteData(userId: string): Promise<UserData | null> {
     // Check cache first

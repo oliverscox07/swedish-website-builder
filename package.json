@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:prod": "node scripts/generate-static-data.js && vite build",
+    "build:prod": "vite build",
     "generate-static": "node scripts/generate-static-data.js",
     "test-static": "node scripts/test-static-generation.js",
     "preview": "vite preview"

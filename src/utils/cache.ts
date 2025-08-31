@@ -28,7 +28,7 @@ export interface UserData {
 
 // Global cache to store website data
 const websiteDataCache = new Map<string, { data: UserData; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 30 * 1000; // 30 seconds for faster updates
 
 export const getCachedWebsiteData = (userId: string): UserData | null => {
   const cachedData = websiteDataCache.get(userId);
